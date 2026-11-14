@@ -30,6 +30,9 @@ class _Feedback {
         _FeedbackKind.error => AppColors.error,
       };
 
+  /// Text color on top of [color].
+  Color get onColor => kind == _FeedbackKind.warning ? const Color(0xFF231600) : Colors.white;
+
   IconData get icon => switch (kind) {
         _FeedbackKind.success => Icons.check_circle_rounded,
         _FeedbackKind.warning => Icons.warning_amber_rounded,
@@ -50,6 +53,7 @@ class _ScanScreenState extends State<ScanScreen> {
   final FocusNode _wedgeFocus = FocusNode();
   Timer? _wedgeDebounce;
 
+  final ScrollController _scroll = ScrollController();
   StreamSubscription<String>? _broadcastSub;
   Timer? _clockTimer;
   Timer? _feedbackTimer;
@@ -83,6 +87,7 @@ class _ScanScreenState extends State<ScanScreen> {
     _feedbackTimer?.cancel();
     _wedgeDebounce?.cancel();
     _wedgeController.dispose();
+    _scroll.dispose();
     _wedgeFocus.dispose();
     super.dispose();
   }
@@ -247,9 +252,21 @@ class _ScanScreenState extends State<ScanScreen> {
     Future<void>.delayed(const Duration(milliseconds: 260), () {
       if (mounted && token == _flashToken) setState(() => _flashColor = Colors.transparent);
     });
-    _feedbackTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted) setState(() => _feedback = null);
-    });
+    // Keep the scan panel in view after every scan.
+    if (_scroll.hasClients && _scroll.offset > 0) {
+      _scroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    }
+    final visibleFor = switch (feedback.kind) {
+      _FeedbackKind.success => const Duration(seconds: 3),
+      _FeedbackKind.warning => const Duration(seconds: 5),
+      _FeedbackKind.error => const Duration(seconds: 6),
+    };
+    _feedbackTimer = Timer(visibleFor, _dismissFeedback);
+  }
+
+  void _dismissFeedback() {
+    _feedbackTimer?.cancel();
+    if (mounted && _feedback != null) setState(() => _feedback = null);
   }
 
   // ---------------------------------------------------------------------------
@@ -312,8 +329,11 @@ class _ScanScreenState extends State<ScanScreen> {
                 child: Column(
                   children: <Widget>[
                     _Header(app: app, onSettings: _openSettings),
+                    // Fixed under the header so results are always visible without scrolling.
+                    _FeedbackBanner(feedback: _feedback, token: _flashToken, onDismiss: _dismissFeedback),
                     Expanded(
                       child: ListView(
+                        controller: _scroll,
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                         children: <Widget>[
                           _StatsRow(app: app),
@@ -326,8 +346,6 @@ class _ScanScreenState extends State<ScanScreen> {
                             existingTag: _guestExistingTag,
                             onCancel: _reset,
                           ),
-                          const SizedBox(height: 12),
-                          _FeedbackBanner(feedback: _feedback),
                           const SizedBox(height: 18),
                           _RecentTags(tags: app.recentTags),
                         ],
@@ -789,46 +807,93 @@ class _ScanPanel extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _FeedbackBanner extends StatelessWidget {
-  const _FeedbackBanner({required this.feedback});
+  const _FeedbackBanner({required this.feedback, required this.token, required this.onDismiss});
 
   final _Feedback? feedback;
+  final int token;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final f = feedback;
     return AnimatedSize(
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
-      child: f == null
-          ? const SizedBox(width: double.infinity)
-          : Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: f.color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: f.color.withValues(alpha: 0.5)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Icon(f.icon, color: f.color, size: 26),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(f.title, style: TextStyle(color: f.color, fontWeight: FontWeight.w800, fontSize: 16)),
-                        if (f.detail != null) ...<Widget>[
-                          const SizedBox(height: 3),
-                          Text(f.detail!, style: const TextStyle(color: AppColors.textSecondary, height: 1.35)),
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1).animate(animation),
+            child: child,
+          ),
+        ),
+        child: f == null
+            ? const SizedBox(key: ValueKey<String>('none'), width: double.infinity)
+            : Padding(
+                key: ValueKey<int>(token),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: Material(
+                  color: f.color,
+                  borderRadius: BorderRadius.circular(18),
+                  elevation: 6,
+                  shadowColor: f.color.withValues(alpha: 0.5),
+                  child: InkWell(
+                    onTap: onDismiss,
+                    borderRadius: BorderRadius.circular(18),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+                      child: Row(
+                        children: <Widget>[
+                          Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              color: f.onColor.withValues(alpha: 0.18),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(f.icon, color: f.onColor, size: 30),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  f.title,
+                                  style: TextStyle(
+                                    color: f.onColor,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 20,
+                                    height: 1.15,
+                                  ),
+                                ),
+                                if (f.detail != null) ...<Widget>[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    f.detail!,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: f.onColor.withValues(alpha: 0.9),
+                                      fontSize: 14.5,
+                                      height: 1.3,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.close_rounded, color: f.onColor.withValues(alpha: 0.75), size: 20),
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }
