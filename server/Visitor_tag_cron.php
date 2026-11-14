@@ -5,15 +5,22 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * Visitor Tagging - copies tagged card QRs into guests.additional_qr_code.
  *
  * Place in application/controllers/Visitor_tag_cron.php
- * Command line only:
+ * Command line:
  *   php index.php visitor_tag_cron run              Process pending tags
  *   php index.php visitor_tag_cron retry_not_found  Re-queue tags whose guest was not found
+ *
+ * URL (requires ?key=CRON_KEY):
+ *   https://studio.chkdin.com/visitor_tag_cron/run?key=...
+ *   https://studio.chkdin.com/visitor_tag_cron/retry_not_found?key=...
  *
  * visitor_tags.guest_synced:
  *   0 = pending, 1 = guests table updated, 2 = guest not found
  */
 class Visitor_tag_cron extends CI_Controller
 {
+    /** Secret for running the cron from a URL. Command line runs do not need it. */
+    const CRON_KEY = 'ff8efd96c629869c3399fd672922771e';
+
     const TAG_TABLE = 'visitor_tags';
     const GUEST_TABLE = 'guests';
 
@@ -28,7 +35,12 @@ class Visitor_tag_cron extends CI_Controller
     {
         parent::__construct();
         if (!is_cli()) {
-            show_404();
+            $key = (string) $this->input->get('key', TRUE);
+            if (!hash_equals(self::CRON_KEY, $key)) {
+                show_404();
+            }
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Cache-Control: no-store');
         }
         $this->load->database();
         $this->db->query("SET time_zone = '+00:00'");
