@@ -140,6 +140,15 @@ class _ScanScreenState extends State<ScanScreen> {
     final found = await app.findGuest(code);
     if (!mounted) return;
 
+    if (found == null && !AppConfig.guestQrPattern.hasMatch(code)) {
+      _showFeedback(const _Feedback(
+        _FeedbackKind.error,
+        'This is a printed card',
+        'Scan the guest badge QR first, then the printed card.',
+      ));
+      return;
+    }
+
     if (found == null && !AppConfig.allowUnknownGuest) {
       _showFeedback(_Feedback(
         _FeedbackKind.error,
@@ -185,7 +194,8 @@ class _ScanScreenState extends State<ScanScreen> {
       return;
     }
 
-    if (AppConfig.rejectGuestQrAsCard && await app.findGuest(code) != null) {
+    if (AppConfig.guestQrPattern.hasMatch(code) ||
+        (AppConfig.rejectGuestQrAsCard && await app.findGuest(code) != null)) {
       if (!mounted) return;
       _showFeedback(const _Feedback(
         _FeedbackKind.error,

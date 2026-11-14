@@ -8,13 +8,18 @@ import '../config/app_config.dart';
 import 'models.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.isNetwork = false});
+  const ApiException(this.message, {this.isNetwork = false, this.isRetryable = false});
 
   final String message;
 
   /// True when the request did not reach the server or the server had a
   /// temporary failure. Network errors are retried; other errors are not.
   final bool isNetwork;
+
+  /// True for errors caused by setup rather than by the data, such as a wrong
+  /// server URL or API key (401/403/404/405/408/429). Tags that fail this way
+  /// stay in the upload queue instead of being marked rejected.
+  final bool isRetryable;
 
   @override
   String toString() => message;
@@ -119,6 +124,8 @@ class ApiClient {
 
   // ---------------------------------------------------------------------------
 
+  static const Set<int> _retryableStatus = <int>{401, 403, 404, 405, 408, 429};
+
   Future<Map<String, dynamic>> _send(Future<http.Response> Function() request) async {
     http.Response response;
     try {
@@ -139,7 +146,11 @@ class ApiClient {
     try {
       decoded = response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
     } on FormatException {
-      throw ApiException('Invalid response from server (${response.statusCode})');
+      // An HTML page instead of JSON usually means a wrong server URL.
+      throw ApiException(
+        'Invalid response from server (${response.statusCode}). Check the server URL.',
+        isRetryable: true,
+      );
     }
 
     final Map<String, dynamic> body = decoded is Map<String, dynamic>
@@ -148,7 +159,10 @@ class ApiClient {
 
     final message = pickString(body, const ['message', 'msg', 'error']);
     if (response.statusCode >= 400) {
-      throw ApiException(message ?? 'Request failed (${response.statusCode})');
+      throw ApiException(
+        message ?? 'Request failed (${response.statusCode})',
+        isRetryable: _retryableStatus.contains(response.statusCode),
+      );
     }
     if (body['status'] == false || body['success'] == false) {
       throw ApiException(message ?? 'Request was rejected by the server');

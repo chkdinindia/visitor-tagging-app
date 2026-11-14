@@ -249,8 +249,9 @@ class AppState extends ChangeNotifier {
             await _db.markSynced(tag.id!);
             online = true;
           } on ApiException catch (e) {
-            if (e.isNetwork) {
-              online = false;
+            if (e.isNetwork || e.isRetryable) {
+              online = !e.isNetwork;
+              lastError = e.message;
               await _db.recordFailedAttempt(tag.id!, e.message);
               return;
             }

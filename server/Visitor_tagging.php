@@ -201,6 +201,23 @@ class Visitor_tagging extends CI_Controller
             $scannedAt = gmdate('Y-m-d H:i:s');
         }
 
+        // A printed card can belong to one guest only (checked across all devices).
+        $used = $this->db
+            ->select('guest_qr')
+            ->from(self::TAG_TABLE)
+            ->where('event_id', $eventId)
+            ->where('card_qr', $cardQr)
+            ->where('guest_qr !=', $guestQr)
+            ->limit(1)
+            ->get()
+            ->row_array();
+        if ($used) {
+            $this->_respond([
+                'status'  => false,
+                'message' => 'Card already used for guest ' . $used['guest_qr'],
+            ], 409);
+        }
+
         // INSERT IGNORE + unique (device_id, local_id) makes app retries safe.
         $this->db->query(
             'INSERT IGNORE INTO ' . self::TAG_TABLE . '

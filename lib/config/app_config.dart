@@ -68,6 +68,10 @@ class AppConfig {
   /// scanner and UI before the APIs are ready. Guest QRs: DEMO-0001 … DEMO-0200.
   static const String demoEventId = '000000';
 
+  /// Format of a guest badge QR (6 digits). A code in this format is never
+  /// accepted as a printed card, even if the guest is in another category.
+  static final RegExp guestQrPattern = RegExp(r'^\d{6}$');
+
   /// Ignore the same code if it is scanned again within this window.
   static const Duration duplicateScanWindow = Duration(milliseconds: 1200);
 }
