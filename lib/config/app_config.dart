@@ -20,7 +20,11 @@ class AppConfig {
   /// (or "{site}/index.php/visitor_tagging" if index.php is not removed).
   static const String defaultBaseUrl = 'https://studio.chkdin.com/visitor_tagging';
 
-  /// GET  {baseUrl}{eventPath}?event_id=123456
+  /// GET  {baseUrl}{categoriesPath}?event_id=123456
+  /// Validates the event and returns the categories that can be tagged.
+  static const String categoriesPath = '/categories';
+
+  /// GET  {baseUrl}{eventPath}?event_id=123456&category_id=5660
   /// Validates the event and returns every QR in bts_qr_pool for that event.
   static const String eventPath = '/event';
 
@@ -44,13 +48,10 @@ class AppConfig {
   /// Network timeout for a single request. The first download can be large.
   static const Duration requestTimeout = Duration(seconds: 60);
 
-  /// Categories offered after login. Only the chosen category's QR codes are
-  /// downloaded and kept in sync. Edit IDs and names to match bts_qr_pool.
-  static const List<TaggingCategory> taggingCategories = <TaggingCategory>[
-    TaggingCategory(id: '29', name: 'Association Partner'),
-    TaggingCategory(id: '93', name: 'QUIZ - Day 3'),
-    TaggingCategory(id: '0', name: 'Category 3 (set ID)'),
-    TaggingCategory(id: '0', name: 'Category 4 (set ID)'),
+  /// Categories used only in demo mode. Real categories come from the server.
+  static const List<TaggingCategory> demoCategories = <TaggingCategory>[
+    TaggingCategory(id: 'D1', name: 'Demo Business Visitor'),
+    TaggingCategory(id: 'D2', name: 'Demo Premium Visitor'),
   ];
 
   /// Number of digits in an Event ID.

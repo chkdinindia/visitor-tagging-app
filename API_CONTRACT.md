@@ -15,9 +15,30 @@ categories may use `category_id` / `categoryId`, and the list may be under
 
 ---
 
+## 0. Categories (after entering Event ID)
+
+`GET {baseUrl}/categories?event_id=123456`
+
+Validates the event and returns the categories the operator can tag. The list is a
+static array in the controller (`TAGGING_CATEGORIES`). IDs refer to the column set in
+`CATEGORY_COLUMN` (default `studio_category`).
+
+```json
+{
+  "status": true,
+  "event": { "id": "123456", "name": "Event 123456" },
+  "data": [
+    { "id": "5660", "name": "BUSINESS VISITOR" },
+    { "id": "5661", "name": "BUSINESS VISITOR EWI" }
+  ]
+}
+```
+
+---
+
 ## 1. Event login + full download
 
-`GET {baseUrl}/event?event_id=123456&category_id=93`
+`GET {baseUrl}/event?event_id=123456&category_id=5660`
 
 Only QR codes in the selected category are returned. The app's category list is in
 `AppConfig.taggingCategories`.

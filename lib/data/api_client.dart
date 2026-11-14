@@ -51,6 +51,30 @@ class ApiClient {
   Uri _uri(String path, Map<String, String> query) =>
       Uri.parse('$baseUrl$path').replace(queryParameters: query);
 
+  /// Validates the event and returns the categories the operator can choose.
+  Future<List<TaggingCategory>> fetchCategories(String eventId) async {
+    final body = await _send(() => _http.get(
+          _uri(AppConfig.categoriesPath, <String, String>{'event_id': eventId}),
+          headers: _headers,
+        ));
+    final dynamic list = body['data'] ?? body['categories'];
+    final categories = <TaggingCategory>[];
+    if (list is List) {
+      for (final item in list) {
+        if (item is! Map) continue;
+        final id = pickString(item, const ['id', 'category_id']) ?? '';
+        final name = pickString(item, const ['name', 'category_name']) ?? '';
+        if (id.isNotEmpty) {
+          categories.add(TaggingCategory(id: id, name: name.isEmpty ? 'Category $id' : name));
+        }
+      }
+    }
+    if (categories.isEmpty) {
+      throw const ApiException('No categories are configured for this event');
+    }
+    return categories;
+  }
+
   /// Validates the event and downloads the full QR database.
   Future<EventSnapshot> fetchEvent(String eventId, {required String categoryId}) async {
     final body = await _send(() => _http.get(

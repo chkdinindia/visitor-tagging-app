@@ -82,6 +82,12 @@ class AppState extends ChangeNotifier {
   // Session
   // ---------------------------------------------------------------------------
 
+  /// Categories the operator can choose for [id].
+  Future<List<TaggingCategory>> fetchCategories(String id) async {
+    if (id == AppConfig.demoEventId) return AppConfig.demoCategories;
+    return _api.fetchCategories(id);
+  }
+
   /// Validates the event, downloads the full QR database and stores the
   /// current UTC time as the sync checkpoint.
   Future<void> login(

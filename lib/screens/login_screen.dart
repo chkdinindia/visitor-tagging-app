@@ -22,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   bool _choosingCategory = false;
   TaggingCategory? _selected;
+  List<TaggingCategory> _categories = const <TaggingCategory>[];
   String? _status;
   String? _error;
 
@@ -41,13 +42,26 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _continue() {
+  Future<void> _continue() async {
     if (!_isComplete || _loading) return;
     FocusScope.of(context).unfocus();
     setState(() {
+      _loading = true;
       _error = null;
-      _choosingCategory = true;
     });
+    try {
+      final categories = await context.read<AppState>().fetchCategories(_code);
+      if (!mounted) return;
+      setState(() {
+        _categories = categories;
+        _choosingCategory = true;
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      _fail(e.isNetwork ? '${e.message}. Check the internet and try again.' : e.message);
+    } catch (e) {
+      _fail('Something went wrong: $e');
+    }
   }
 
   void _backToEventId() {
@@ -173,7 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 32),
                       if (_choosingCategory) ...<Widget>[
-                        for (final category in AppConfig.taggingCategories)
+                        for (final category in _categories)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: _CategoryTile(
@@ -205,8 +219,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       _ErrorText(error: _error),
                       const SizedBox(height: 24),
                       FilledButton(
-                        onPressed: _isComplete ? _continue : null,
-                        child: const Row(
+                        onPressed: _isComplete && !_loading ? _continue : null,
+                        child: _loading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                              )
+                            : const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: <Widget>[
                                   Text('Continue'),

@@ -7,7 +7,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * Place in application/controllers/Visitor_tagging.php
  *
  * Endpoints (all require header "X-Api-Key"):
- *   GET  /visitor_tagging/event?event_id=118261&category_id=93
+ *   GET  /visitor_tagging/categories?event_id=118261
+ *   GET  /visitor_tagging/event?event_id=118261&category_id=5660
  *   GET  /visitor_tagging/sync?event_id=118261&since=2026-11-14T09:30:00.000Z
  *   POST /visitor_tagging/tag   (JSON body)
  *
@@ -19,6 +20,22 @@ class Visitor_tagging extends CI_Controller
     const API_KEY = 'a2cba4859fe1d8124d73781060b802f311a7ab84';
 
     const QR_POOL_TABLE = 'bts_qr_pool';
+
+    /**
+     * Column in bts_qr_pool that the category IDs below refer to.
+     * Its value is returned to the app as "category_id".
+     */
+    const CATEGORY_COLUMN = 'studio_category';
+
+    /**
+     * Categories offered in the app after login. Entries with an empty ID are hidden.
+     */
+    const TAGGING_CATEGORIES = [
+        ['id' => '5660', 'name' => 'BUSINESS VISITOR'],
+        ['id' => '5661', 'name' => 'BUSINESS VISITOR EWI'],
+        ['id' => '5725', 'name' => 'PREMIUM BUSINESS VISITOR'],
+        ['id' => '',     'name' => 'PREMIUM BUSINESS VISITOR EWI'],
+    ];
     const TAG_TABLE = 'visitor_tags';
 
     public function __construct()
@@ -36,6 +53,39 @@ class Visitor_tagging extends CI_Controller
     }
 
     /**
+     * Validates the event and returns the categories the operator can choose.
+     */
+    public function categories()
+    {
+        $eventId = $this->_event_id();
+
+        $exists = $this->db
+            ->select('1', false)
+            ->from(self::QR_POOL_TABLE)
+            ->where('event_id', $eventId)
+            ->limit(1)
+            ->get()
+            ->num_rows() > 0;
+
+        if (!$exists) {
+            $this->_respond(['status' => false, 'message' => 'Invalid Event ID'], 404);
+        }
+
+        $categories = [];
+        foreach (self::TAGGING_CATEGORIES as $category) {
+            if ($category['id'] !== '') {
+                $categories[] = $category;
+            }
+        }
+
+        $this->_respond([
+            'status' => true,
+            'event'  => ['id' => $eventId, 'name' => 'Event ' . $eventId],
+            'data'   => $categories,
+        ]);
+    }
+
+    /**
      * Full download for an event and category: every QR in that category.
      * The app stores server_time and sends it to sync() as `since`.
      */
@@ -49,11 +99,11 @@ class Visitor_tagging extends CI_Controller
         $serverTime = gmdate('Y-m-d\TH:i:s\Z');
 
         $this->db
-            ->select('qr_code, category_id, category_name')
+            ->select('qr_code, ' . self::CATEGORY_COLUMN . ' AS category_id, category_name')
             ->from(self::QR_POOL_TABLE)
             ->where('event_id', $eventId);
         if ($categoryId !== '') {
-            $this->db->where('category_id', $categoryId);
+            $this->db->where(self::CATEGORY_COLUMN, $categoryId);
         }
         $rows = $this->db->get()->result_array();
 
@@ -99,7 +149,7 @@ class Visitor_tagging extends CI_Controller
         // ">=" so rows changed in the same second as the last sync are not missed.
         // Re-sending a row is harmless because the app upserts.
         $rows = $this->db
-            ->select('qr_code, category_id, category_name')
+            ->select('qr_code, ' . self::CATEGORY_COLUMN . ' AS category_id, category_name')
             ->from(self::QR_POOL_TABLE)
             ->where('event_id', $eventId)
             ->where('changed_at >=', $since)
@@ -178,12 +228,18 @@ class Visitor_tagging extends CI_Controller
 
     private function _format_rows(array $rows)
     {
+        $names = [];
+        foreach (self::TAGGING_CATEGORIES as $category) {
+            $names[$category['id']] = $category['name'];
+        }
+
         $out = [];
         foreach ($rows as $row) {
+            $categoryId = (string) $row['category_id'];
             $out[] = [
                 'qr_code'       => (string) $row['qr_code'],
-                'category_id'   => (string) $row['category_id'],
-                'category_name' => $row['category_name'],
+                'category_id'   => $categoryId,
+                'category_name' => isset($names[$categoryId]) ? $names[$categoryId] : $row['category_name'],
             ];
         }
         return $out;
