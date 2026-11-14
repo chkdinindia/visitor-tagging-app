@@ -45,6 +45,7 @@ class _SettingsSheet extends StatelessWidget {
               _InfoRow(label: 'Event', value: app.eventName),
               _InfoRow(label: 'Event ID', value: app.eventId ?? '—'),
               _InfoRow(label: 'Device ID', value: app.deviceId),
+              _InfoRow(label: 'Server', value: app.baseUrl),
             ]),
             const SizedBox(height: 12),
             _Section(children: <Widget>[

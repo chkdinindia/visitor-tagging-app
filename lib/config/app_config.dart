@@ -5,23 +5,29 @@
 class AppConfig {
   AppConfig._();
 
-  /// Base URL of the visitor tagging API (no trailing slash).
-  static const String baseUrl = 'https://api.chkdin.com/visitor-tagging';
+  /// Default base URL of the visitor tagging API (no trailing slash).
+  /// Can be changed on the device from the login screen (server icon).
+  /// For CodeIgniter 3 this is "{site}/visitor_tagging"
+  /// (or "{site}/index.php/visitor_tagging" if index.php is not removed).
+  static const String defaultBaseUrl = 'https://studio.chkdin.com/visitor_tagging';
 
   /// GET  {baseUrl}{eventPath}?event_id=123456
-  /// Validates the event and returns the full QR code database.
+  /// Validates the event and returns every QR in bts_qr_pool for that event.
   static const String eventPath = '/event';
 
   /// GET  {baseUrl}{syncPath}?event_id=123456&since=2026-11-14T09:30:00.000Z
-  /// Returns QR codes that were added or whose category changed since `since`.
+  /// Returns rows whose changed_at (UTC) is on or after `since`.
   static const String syncPath = '/sync';
 
   /// POST {baseUrl}{tagPath}
   /// Sends a guest QR + printed card QR pair to the server.
   static const String tagPath = '/tag';
 
-  /// Extra headers sent with every request (for example an API key).
-  static const Map<String, String> extraHeaders = <String, String>{};
+  /// Sent as the "X-Api-Key" header. Must match API_KEY in the CI3 controller.
+  static const String apiKey = 'a2cba4859fe1d8124d73781060b802f311a7ab84';
+
+  /// Headers sent with every request.
+  static const Map<String, String> extraHeaders = <String, String>{'X-Api-Key': apiKey};
 
   /// How often the app pulls changes and uploads pending tags.
   static const Duration syncInterval = Duration(minutes: 2);

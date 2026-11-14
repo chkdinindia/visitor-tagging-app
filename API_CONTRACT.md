@@ -1,7 +1,9 @@
 # Visitor Tagging – API Contract
 
-The app talks to three endpoints. Base URL and paths are configured in
-`lib/config/app_config.dart`.
+The app talks to three endpoints served by the CodeIgniter 3 controller
+`server/Visitor_tagging.php` (copy it to `application/controllers/`). Every
+request carries the header `X-Api-Key`. The base URL can be changed on the
+device from the login screen (server icon). Table for tags: `server/schema.sql`.
 
 All times are **UTC, ISO 8601** (for example `2026-11-14T09:30:00.000Z`).
 `server_time` may also be a Unix timestamp (seconds or milliseconds).
@@ -26,7 +28,7 @@ The app replaces its local QR database with this list and saves `server_time`
   "status": true,
   "message": "OK",
   "server_time": "2026-11-14T09:30:00Z",
-  "event": { "id": "123456", "name": "BTS 2026" },
+  "event": { "id": "123456", "name": "Event 123456" },
   "data": [
     { "qr_code": "BTS26-000123", "category_id": 3, "category_name": "VIP" },
     { "qr_code": "BTS26-000124", "category_id": 1, "category_name": "Visitor" }

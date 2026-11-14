@@ -19,6 +19,7 @@ class AppState extends ChangeNotifier {
   static const _kEventName = 'event_name';
   static const _kLastSync = 'last_sync_utc';
   static const _kDeviceId = 'device_id';
+  static const _kBaseUrl = 'base_url';
 
   final LocalDb _db;
   final ApiClient _api;
@@ -55,6 +56,7 @@ class AppState extends ChangeNotifier {
     _prefs = await SharedPreferences.getInstance();
     await _db.open();
 
+    ApiClient.baseUrl = _prefs.getString(_kBaseUrl) ?? AppConfig.defaultBaseUrl;
     deviceId = _prefs.getString(_kDeviceId) ?? _generateDeviceId();
     await _prefs.setString(_kDeviceId, deviceId);
 
@@ -117,6 +119,19 @@ class AppState extends ChangeNotifier {
     online = null;
     lastChangeCount = 0;
     await _refreshCounts();
+    notifyListeners();
+  }
+
+  String get baseUrl => ApiClient.baseUrl;
+
+  Future<void> setBaseUrl(String url) async {
+    var value = url.trim();
+    while (value.endsWith('/')) {
+      value = value.substring(0, value.length - 1);
+    }
+    if (value.isEmpty) value = AppConfig.defaultBaseUrl;
+    ApiClient.baseUrl = value;
+    await _prefs.setString(_kBaseUrl, value);
     notifyListeners();
   }
 

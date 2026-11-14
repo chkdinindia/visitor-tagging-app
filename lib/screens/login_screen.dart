@@ -72,9 +72,57 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  Future<void> _editServer() async {
+    final app = context.read<AppState>();
+    final controller = TextEditingController(text: app.baseUrl);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Server URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'URL of the visitor_tagging controller, e.g. https://yoursite.com/visitor_tagging',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: const InputDecoration(hintText: 'https://yoursite.com/visitor_tagging'),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(AppConfig.defaultBaseUrl),
+            child: const Text('Reset'),
+          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(context).pop(controller.text), child: const Text('Save')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value != null) await app.setBaseUrl(value);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+      floatingActionButton: _loading
+          ? null
+          : IconButton(
+              onPressed: _editServer,
+              tooltip: 'Server URL',
+              icon: const Icon(Icons.dns_outlined, color: AppColors.textMuted),
+            ),
       body: GlowBackground(
         child: SafeArea(
           child: LayoutBuilder(

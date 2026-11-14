@@ -40,13 +40,16 @@ class ApiClient {
 
   final http.Client _http;
 
+  /// Active base URL. Set from saved settings at startup.
+  static String baseUrl = AppConfig.defaultBaseUrl;
+
   Map<String, String> get _headers => <String, String>{
         'Accept': 'application/json',
         ...AppConfig.extraHeaders,
       };
 
   Uri _uri(String path, Map<String, String> query) =>
-      Uri.parse('${AppConfig.baseUrl}$path').replace(queryParameters: query);
+      Uri.parse('$baseUrl$path').replace(queryParameters: query);
 
   /// Validates the event and downloads the full QR database.
   Future<EventSnapshot> fetchEvent(String eventId) async {
@@ -76,7 +79,7 @@ class ApiClient {
     required String deviceId,
   }) async {
     await _send(() => _http.post(
-          Uri.parse('${AppConfig.baseUrl}${AppConfig.tagPath}'),
+          Uri.parse('$baseUrl${AppConfig.tagPath}'),
           headers: <String, String>{..._headers, 'Content-Type': 'application/json'},
           body: jsonEncode(<String, Object?>{
             'event_id': eventId,
