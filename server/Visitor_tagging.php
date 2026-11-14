@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * Place in application/controllers/Visitor_tagging.php
  *
  * Endpoints (all require header "X-Api-Key"):
- *   GET  /visitor_tagging/event?event_id=118261
+ *   GET  /visitor_tagging/event?event_id=118261&category_id=93
  *   GET  /visitor_tagging/sync?event_id=118261&since=2026-11-14T09:30:00.000Z
  *   POST /visitor_tagging/tag   (JSON body)
  *
@@ -36,26 +36,34 @@ class Visitor_tagging extends CI_Controller
     }
 
     /**
-     * Full download for an event: every QR with its category.
+     * Full download for an event and category: every QR in that category.
      * The app stores server_time and sends it to sync() as `since`.
      */
     public function event()
     {
         $eventId = $this->_event_id();
+        $categoryId = trim((string) $this->input->get('category_id', TRUE));
         ini_set('memory_limit', '512M');
 
         // Capture the time BEFORE querying so no change is missed.
         $serverTime = gmdate('Y-m-d\TH:i:s\Z');
 
-        $rows = $this->db
+        $this->db
             ->select('qr_code, category_id, category_name')
             ->from(self::QR_POOL_TABLE)
-            ->where('event_id', $eventId)
-            ->get()
-            ->result_array();
+            ->where('event_id', $eventId);
+        if ($categoryId !== '') {
+            $this->db->where('category_id', $categoryId);
+        }
+        $rows = $this->db->get()->result_array();
 
         if (empty($rows)) {
-            $this->_respond(['status' => false, 'message' => 'Invalid Event ID'], 404);
+            $this->_respond([
+                'status'  => false,
+                'message' => $categoryId !== ''
+                    ? 'No QR codes found for this Event ID and category'
+                    : 'Invalid Event ID',
+            ], 404);
         }
 
         $this->_respond([
@@ -69,6 +77,9 @@ class Visitor_tagging extends CI_Controller
 
     /**
      * Rows whose changed_at is on or after `since` (new QRs and category changes).
+     *
+     * Returns changes for ALL categories on purpose: the app keeps rows in its
+     * selected category and removes rows that moved to another category.
      */
     public function sync()
     {

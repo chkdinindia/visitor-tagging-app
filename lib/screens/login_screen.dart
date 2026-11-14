@@ -20,6 +20,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final FocusNode _focus = FocusNode();
 
   bool _loading = false;
+  bool _choosingCategory = false;
+  TaggingCategory? _selected;
   String? _status;
   String? _error;
 
@@ -39,10 +41,28 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  void _continue() {
     if (!_isComplete || _loading) return;
     FocusScope.of(context).unfocus();
     setState(() {
+      _error = null;
+      _choosingCategory = true;
+    });
+  }
+
+  void _backToEventId() {
+    if (_loading) return;
+    setState(() {
+      _choosingCategory = false;
+      _error = null;
+    });
+    _focus.requestFocus();
+  }
+
+  Future<void> _download(TaggingCategory category) async {
+    if (_loading) return;
+    setState(() {
+      _selected = category;
       _loading = true;
       _error = null;
       _status = 'Connecting…';
@@ -50,6 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await context.read<AppState>().login(
             _code,
+            category,
             onStatus: (s) {
               if (mounted) setState(() => _status = s);
             },
@@ -143,57 +164,49 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: -0.5),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Enter your 6-digit Event ID to download\nthe guest database to this device.',
+                      Text(
+                        _choosingCategory
+                            ? 'Event $_code\nSelect the category you are tagging.'
+                            : 'Enter your 6-digit Event ID to download\nthe guest database to this device.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 15, height: 1.45),
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 15, height: 1.45),
                       ),
-                      const SizedBox(height: 36),
+                      const SizedBox(height: 32),
+                      if (_choosingCategory) ...<Widget>[
+                        for (final category in AppConfig.taggingCategories)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _CategoryTile(
+                              category: category,
+                              enabled: !_loading,
+                              loading: _loading && _selected == category,
+                              status: _status,
+                              onTap: () => _download(category),
+                            ),
+                          ),
+                        const SizedBox(height: 6),
+                        _ErrorText(error: _error),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: _loading ? null : _backToEventId,
+                          icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                          label: const Text('Change Event ID'),
+                          style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+                        ),
+                      ] else ...<Widget>[
                       _PinField(
                         controller: _controller,
                         focusNode: _focus,
                         enabled: !_loading,
                         hasError: _error != null,
-                        onCompleted: _submit,
+                        onCompleted: _continue,
                       ),
                       const SizedBox(height: 16),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: _error == null
-                            ? const SizedBox(height: 20)
-                            : Row(
-                                key: ValueKey<String>(_error!),
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: <Widget>[
-                                  const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 18),
-                                  const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      _error!,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
+                      _ErrorText(error: _error),
                       const SizedBox(height: 24),
                       FilledButton(
-                        onPressed: _isComplete && !_loading ? _submit : null,
-                        child: _loading
-                            ? Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: <Widget>[
-                                  const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Flexible(child: Text(_status ?? 'Please wait…', overflow: TextOverflow.ellipsis)),
-                                ],
-                              )
-                            : const Row(
+                        onPressed: _isComplete ? _continue : null,
+                        child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: <Widget>[
                                   Text('Continue'),
@@ -208,6 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textAlign: TextAlign.center,
                         style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
                       ),
+                      ],
                       const Spacer(flex: 3),
                       const Padding(
                         padding: EdgeInsets.only(bottom: 16),
@@ -222,6 +236,108 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorText extends StatelessWidget {
+  const _ErrorText({required this.error});
+
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = error;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      child: message == null
+          ? const SizedBox(height: 20)
+          : Row(
+              key: ValueKey<String>(message),
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 18),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile({
+    required this.category,
+    required this.enabled,
+    required this.loading,
+    required this.status,
+    required this.onTap,
+  });
+
+  final TaggingCategory category;
+  final bool enabled;
+  final bool loading;
+  final String? status;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = AppColors.forCategory(category.id);
+    return Material(
+      color: loading ? color.withValues(alpha: 0.14) : AppColors.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: loading ? color : AppColors.border),
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.style_rounded, color: color),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(category.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text(
+                      loading ? (status ?? 'Please wait…') : 'Category ID ${category.id}',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+                    ),
+                  ],
+                ),
+              ),
+              if (loading)
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.4, color: color),
+                )
+              else
+                const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+            ],
           ),
         ),
       ),

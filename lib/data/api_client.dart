@@ -52,9 +52,9 @@ class ApiClient {
       Uri.parse('$baseUrl$path').replace(queryParameters: query);
 
   /// Validates the event and downloads the full QR database.
-  Future<EventSnapshot> fetchEvent(String eventId) async {
+  Future<EventSnapshot> fetchEvent(String eventId, {required String categoryId}) async {
     final body = await _send(() => _http.get(
-          _uri(AppConfig.eventPath, <String, String>{'event_id': eventId}),
+          _uri(AppConfig.eventPath, <String, String>{'event_id': eventId, 'category_id': categoryId}),
           headers: _headers,
         ));
     return _parseSnapshot(body);

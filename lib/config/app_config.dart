@@ -1,3 +1,12 @@
+/// A guest category that can be tagged with printed cards.
+class TaggingCategory {
+  const TaggingCategory({required this.id, required this.name});
+
+  /// Must match bts_qr_pool.category_id.
+  final String id;
+  final String name;
+}
+
 /// Central configuration for the Visitor Tagging app.
 ///
 /// All API endpoints live here so the backend contract can be changed
@@ -34,6 +43,15 @@ class AppConfig {
 
   /// Network timeout for a single request. The first download can be large.
   static const Duration requestTimeout = Duration(seconds: 60);
+
+  /// Categories offered after login. Only the chosen category's QR codes are
+  /// downloaded and kept in sync. Edit IDs and names to match bts_qr_pool.
+  static const List<TaggingCategory> taggingCategories = <TaggingCategory>[
+    TaggingCategory(id: '29', name: 'Association Partner'),
+    TaggingCategory(id: '93', name: 'QUIZ - Day 3'),
+    TaggingCategory(id: '0', name: 'Category 3 (set ID)'),
+    TaggingCategory(id: '0', name: 'Category 4 (set ID)'),
+  ];
 
   /// Number of digits in an Event ID.
   static const int eventIdLength = 6;

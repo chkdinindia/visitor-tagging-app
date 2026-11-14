@@ -44,12 +44,13 @@ class _SettingsSheet extends StatelessWidget {
             _Section(children: <Widget>[
               _InfoRow(label: 'Event', value: app.eventName),
               _InfoRow(label: 'Event ID', value: app.eventId ?? '—'),
+              _InfoRow(label: 'Category', value: '${app.categoryName} (${app.categoryId})'),
               _InfoRow(label: 'Device ID', value: app.deviceId),
               _InfoRow(label: 'Server', value: app.baseUrl),
             ]),
             const SizedBox(height: 12),
             _Section(children: <Widget>[
-              _InfoRow(label: 'Guests in local DB', value: '${app.totalCodes}'),
+              _InfoRow(label: 'QR codes in category', value: '${app.totalCodes}'),
               _InfoRow(label: 'Last sync', value: fullLocalTime(app.lastSyncUtc)),
               _InfoRow(label: 'Sync checkpoint', value: fullUtcTime(app.lastSyncUtc)),
               _InfoRow(label: 'Last attempt', value: timeAgo(app.lastAttemptUtc)),
@@ -103,7 +104,7 @@ class _SettingsSheet extends StatelessWidget {
                 side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
               ),
               icon: const Icon(Icons.logout_rounded),
-              label: const Text('Log out of event'),
+              label: const Text('Change category / Log out'),
             ),
           ],
         ),

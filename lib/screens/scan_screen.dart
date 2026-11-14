@@ -136,10 +136,10 @@ class _ScanScreenState extends State<ScanScreen> {
     if (!mounted) return;
 
     if (found == null && !AppConfig.allowUnknownGuest) {
-      _showFeedback(const _Feedback(
+      _showFeedback(_Feedback(
         _FeedbackKind.error,
-        'Guest not found',
-        'This QR is not in the event database. Try syncing, or check the badge.',
+        'Not in ${app.categoryName}',
+        'This QR is not in the selected category. Check the badge, or sync and try again.',
       ));
       return;
     }
@@ -412,7 +412,9 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Event ID ${app.eventId ?? ''}',
+                  '${app.categoryName}  ·  Event ${app.eventId ?? ''}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
                 ),
               ],

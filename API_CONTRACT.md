@@ -17,7 +17,10 @@ categories may use `category_id` / `categoryId`, and the list may be under
 
 ## 1. Event login + full download
 
-`GET {baseUrl}/event?event_id=123456`
+`GET {baseUrl}/event?event_id=123456&category_id=93`
+
+Only QR codes in the selected category are returned. The app's category list is in
+`AppConfig.taggingCategories`.
 
 Called once when the operator enters the 6-digit Event ID.
 The app replaces its local QR database with this list and saves `server_time`
@@ -48,7 +51,9 @@ Invalid event:
 
 `GET {baseUrl}/sync?event_id=123456&since=2026-11-14T09:30:00.000Z`
 
-Return QR codes that were **added** or whose **category changed** after `since`.
+Return QR codes that were **added** or whose **category changed** after `since`,
+for **all** categories. The app keeps rows in its selected category and removes
+rows that moved to another category.
 The app upserts them into the local database and moves its checkpoint to
 `server_time`.
 

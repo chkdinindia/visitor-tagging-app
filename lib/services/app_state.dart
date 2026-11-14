@@ -17,6 +17,8 @@ class AppState extends ChangeNotifier {
 
   static const _kEventId = 'event_id';
   static const _kEventName = 'event_name';
+  static const _kCategoryId = 'category_id';
+  static const _kCategoryName = 'category_name';
   static const _kLastSync = 'last_sync_utc';
   static const _kDeviceId = 'device_id';
   static const _kBaseUrl = 'base_url';
@@ -31,6 +33,8 @@ class AppState extends ChangeNotifier {
   // Session
   String? eventId;
   String eventName = '';
+  String categoryId = '';
+  String categoryName = '';
   String deviceId = '';
 
   // Sync status
@@ -62,6 +66,8 @@ class AppState extends ChangeNotifier {
 
     eventId = _prefs.getString(_kEventId);
     eventName = _prefs.getString(_kEventName) ?? '';
+    categoryId = _prefs.getString(_kCategoryId) ?? '';
+    categoryName = _prefs.getString(_kCategoryName) ?? '';
     final savedSync = _prefs.getString(_kLastSync);
     lastSyncUtc = savedSync == null ? null : DateTime.tryParse(savedSync)?.toUtc();
 
@@ -78,10 +84,16 @@ class AppState extends ChangeNotifier {
 
   /// Validates the event, downloads the full QR database and stores the
   /// current UTC time as the sync checkpoint.
-  Future<void> login(String id, {void Function(String status)? onStatus}) async {
+  Future<void> login(
+    String id,
+    TaggingCategory category, {
+    void Function(String status)? onStatus,
+  }) async {
     final startedAtUtc = DateTime.now().toUtc();
-    onStatus?.call('Downloading QR database…');
-    final snapshot = id == AppConfig.demoEventId ? _demoSnapshot() : await _api.fetchEvent(id);
+    onStatus?.call('Downloading ${category.name}…');
+    final snapshot = id == AppConfig.demoEventId
+        ? _demoSnapshot(category)
+        : await _api.fetchEvent(id, categoryId: category.id);
 
     onStatus?.call('Saving ${snapshot.records.length} QR codes…');
     await _db.replaceAllCodes(snapshot.records);
@@ -96,6 +108,10 @@ class AppState extends ChangeNotifier {
 
     await _prefs.setString(_kEventId, id);
     await _prefs.setString(_kEventName, eventName);
+    categoryId = category.id;
+    categoryName = category.name;
+    await _prefs.setString(_kCategoryId, categoryId);
+    await _prefs.setString(_kCategoryName, categoryName);
     await _prefs.setString(_kLastSync, lastSyncUtc!.toIso8601String());
 
     await _refreshCounts();
@@ -109,10 +125,14 @@ class AppState extends ChangeNotifier {
     await _db.clearAll();
     await _prefs.remove(_kEventId);
     await _prefs.remove(_kEventName);
+    await _prefs.remove(_kCategoryId);
+    await _prefs.remove(_kCategoryName);
     await _prefs.remove(_kLastSync);
 
     eventId = null;
     eventName = '';
+    categoryId = '';
+    categoryName = '';
     lastSyncUtc = null;
     lastAttemptUtc = null;
     lastError = null;
@@ -171,11 +191,22 @@ class AppState extends ChangeNotifier {
       final snapshot = await _api.fetchChanges(id, since);
       if (eventId != id) return; // Logged out while the request was running.
 
-      await _db.upsertCodes(snapshot.records);
-      await _db.deleteCodes(snapshot.deletedCodes);
+      // Sync returns changes for every category. Keep rows in the selected
+      // category; remove rows that moved to another category.
+      final keep = <QrRecord>[];
+      final remove = <String>[...snapshot.deletedCodes];
+      for (final record in snapshot.records) {
+        if (record.categoryId == categoryId) {
+          keep.add(record);
+        } else {
+          remove.add(record.qrCode);
+        }
+      }
+      await _db.upsertCodes(keep);
+      await _db.deleteCodes(remove);
 
       lastSyncUtc = snapshot.serverTimeUtc ?? startedAtUtc;
-      lastChangeCount = snapshot.records.length + snapshot.deletedCodes.length;
+      lastChangeCount = keep.length;
       await _prefs.setString(_kLastSync, lastSyncUtc!.toIso8601String());
       online = true;
       lastError = null;
@@ -274,16 +305,14 @@ class AppState extends ChangeNotifier {
     recentTags = await _db.recentTags(limit: 15);
   }
 
-  EventSnapshot _demoSnapshot() {
-    const categories = <String>['Visitor', 'VIP', 'Speaker', 'Exhibitor', 'Media'];
+  EventSnapshot _demoSnapshot(TaggingCategory category) {
     return EventSnapshot(
       eventName: 'Demo Event',
       records: List<QrRecord>.generate(200, (i) {
-        final c = i % categories.length;
         return QrRecord(
           qrCode: 'DEMO-${(i + 1).toString().padLeft(4, '0')}',
-          categoryId: '${c + 1}',
-          categoryName: categories[c],
+          categoryId: category.id,
+          categoryName: category.name,
         );
       }),
       deletedCodes: const <String>[],
